@@ -1,72 +1,111 @@
-// Include the Arduino Stepper Library
-#include <Stepper.h>
+// Définition des pins
+const int enablePin = 7;     // LOW = activé, HIGH = désactivé
+const int stepPin = 9;
+const int dirPin  = 8;
 
-// Number of steps per output rotation
-const int stepsPerRevolution = 200;
-// buton
-int button_A = A0;
-// endstop pin
-int endstopPin_hight = A1;
-int endstopPin_down = A2;
-// Create Instance of Stepper library
-Stepper myStepper(stepsPerRevolution, 8, 9, 10, 11);
-boolean firstlaunch = false;
-boolean up = false;
-boolean down = false;
+const int button_A = A0;
+const int endstopPin_hight = A1; // Capteur du haut
+const int endstopPin_down  = A2; // Capteur du bas
 
-void setup()
-{
-	// set the speed at 60 rpm:
-	myStepper.setSpeed(60);
-	// initialize the serial port:
-	Serial.begin(9600);
+// Paramètres de vitesse
+const int pulseWidthMicros = 100;   
+const int delayBetweenSteps = 1000; 
+
+// Variables d'état
+bool firstlaunch = false;
+
+void setup() {
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  pinMode(enablePin, OUTPUT);
+
+  // Utilisation du PULLUP interne : le bouton/capteur doit relier la pin à la masse (GND)
+  pinMode(button_A, INPUT_PULLUP);
+  pinMode(endstopPin_hight, INPUT_PULLUP);
+  pinMode(endstopPin_down, INPUT_PULLUP);
+
+  digitalWrite(enablePin, HIGH); // On commence moteur éteint
+  Serial.begin(9600);
+  Serial.println(F("Système Ascenseur Écran Prêt"));
 }
 
-void loop() 
-{
-  //Serial.println("Start");
-  if (!firstlaunch){
-    // RAZ a la mise sous tension
-    if (digitalRead(endstopPin_down) == LOW) {
-          Serial.println("Decend_RAZ");
-          myStepper.step(-stepsPerRevolution);
-          //delay(1);
-          if (digitalRead(endstopPin_down) == HIGH) {
-            myStepper.step(-stepsPerRevolution);
-            Serial.println("Decend stop_RAZ");
-            //delay(100);
-            firstlaunch = true;
-          }
+// Fonction de base pour un pas moteur
+void motorStep() {
+  digitalWrite(stepPin, HIGH);
+  delayMicroseconds(pulseWidthMicros);
+  digitalWrite(stepPin, LOW);
+  delayMicroseconds(delayBetweenSteps);
+}
+
+void loop() {
+  // --- 1. SÉQUENCE DE DÉMARRAGE (RAZ) ---
+  if (!firstlaunch) {
+    Serial.println(F("Initialisation : Descente vers zéro..."));
+    digitalWrite(enablePin, LOW); // Active le moteur
+    digitalWrite(dirPin, LOW);    // Sens descente
+    
+    // On descend tant que le capteur bas n'est pas activé (il est HIGH si pas touché)
+    while (digitalRead(endstopPin_down) == HIGH) {
+      motorStep();
     }
-  }
-  // action au bouton_A
-  if (digitalRead(button_A) == HIGH) {
-    //firstlaunch = false;
-    Serial.println("action au bouton_A");
-    if (digitalRead(endstopPin_hight) == HIGH) {
-    	down = true;
-    }else if (digitalRead(endstopPin_down) == HIGH) {
-    	up = true;
-    }
+    
+    digitalWrite(enablePin, HIGH); // Coupe le courant après l'init
+    firstlaunch = true;
+    Serial.println(F("Position Zéro OK. Prêt."));
   }
 
-  if (up){
-      Serial.println("Monte");
-        myStepper.step(stepsPerRevolution);
-    if (digitalRead(endstopPin_hight) == HIGH) {
-          Serial.println("Monte stop");
-          myStepper.step(stepsPerRevolution);
-          up = false;
-        }
-  }
-  if (down){
-        Serial.println("Decend");
-      myStepper.step(-stepsPerRevolution);
-    if (digitalRead(endstopPin_down) == HIGH) {
-          Serial.println("Decend stop");
-          myStepper.step(-stepsPerRevolution);
-        down = false;
-        }
-  }
+  // --- 2. GESTION DU BOUTON ---
+  if (digitalRead(button_A) == LOW) {
+    delay(50); // Anti-rebond
+    if (digitalRead(button_A) == LOW) {
+      
+      // On décide de l'action selon la position
+      if (digitalRead(endstopPin_down) == LOW) {
+        // Si on est en bas, on monte
+        monter();
+      } 
+      else if (digitalRead(endstopPin_hight) == LOW) {
+        // Si on est en haut, on descend
+        descendre();
+      }
+      else {
+        // Si on est entre les deux, on descend par sécurité
+        descendre();
+      }
 
+      // Attente du relâchement du bouton pour éviter de boucler
+      while (digitalRead(button_A) == LOW);
+      delay(50);
+    }
+  }
+}
+
+// --- 3. FONCTIONS DE MOUVEMENT ---
+
+void monter() {
+  Serial.println(F("Mouvement : MONTÉE"));
+  digitalWrite(enablePin, LOW); 
+  digitalWrite(dirPin, HIGH); 
+  
+  while (digitalRead(endstopPin_hight) == HIGH) {
+    motorStep();
+    // Sécurité supplémentaire : si on touche le bas par erreur, on stoppe
+    if(digitalRead(endstopPin_down) == LOW && digitalRead(dirPin) == LOW) break;
+  }
+  
+  digitalWrite(enablePin, HIGH); 
+  Serial.println(F("Arrivé en HAUT"));
+}
+
+void descendre() {
+  Serial.println(F("Mouvement : DESCENTE"));
+  digitalWrite(enablePin, LOW);
+  digitalWrite(dirPin, LOW);
+  
+  while (digitalRead(endstopPin_down) == HIGH) {
+    motorStep();
+  }
+  
+  digitalWrite(enablePin, HIGH);
+  Serial.println(F("Arrivé en BAS"));
 }
