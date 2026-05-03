@@ -1,15 +1,15 @@
 // Définition des pins
-const int enablePin = 7;     // LOW = activé, HIGH = désactivé
-const int stepPin = 9;
-const int dirPin  = 8;
+const int enablePin = 7; // pin ENABLE du A4988 // LOW = activé, HIGH = désactivé
+const int stepPin = 9;	// pin STEP du A4988
+const int dirPin  = 8;	// pin DIR du A4988
 
 const int button_A = A0;
 const int endstopPin_hight = A1; // Capteur du haut
 const int endstopPin_down  = A2; // Capteur du bas
 
 // Paramètres de vitesse
-const int pulseWidthMicros = 100;   
-const int delayBetweenSteps = 1000; 
+const int pulseWidthMicros = 100; // Durée impulsion HIGH en µs
+const int delayBetweenSteps = 1000; // Temps entre steps en µs
 
 // Variables d'état
 bool firstlaunch = false;
