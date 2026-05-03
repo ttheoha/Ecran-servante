@@ -70,23 +70,27 @@ void loop() {
   // Monter si demandé
   if (up) {
     Serial.println(F("Monte"));
+    digitalWrite(enablePin, LOW); // Activer le driver
     digitalWrite(dirPin, HIGH); // Sens montée
     while (digitalRead(endstopPin_hight) == HIGH) {
       step();
     }
     Serial.println(F("Position haute atteinte"));
     up = false;
+    digitalWrite(enablePin, HIGH); // Désactiver le driver (coupe le courant dans les bobines)
   }
 
   // Descendre si demandé
   if (down) {
     Serial.println(F("Descend"));
+    digitalWrite(enablePin, LOW); // Activer le driver
     digitalWrite(dirPin, LOW); // Sens descente
     while (digitalRead(endstopPin_down) == HIGH) {
       step();
     }
     Serial.println(F("Position basse atteinte"));
     down = false;
+    digitalWrite(enablePin, HIGH); // Désactiver le driver (coupe le courant dans les bobines)
   }
 }
 
